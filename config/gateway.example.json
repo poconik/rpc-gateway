@@ -1,0 +1,43 @@
+{
+  "host": "127.0.0.1",
+  "port": 3000,
+  "attemptTimeoutMs": 3000,
+  "requestTimeoutMs": 8000,
+  "maxAttempts": 3,
+  "maxRequestBytes": 1048576,
+  "maxResponseBytes": 5242880,
+  "networks": {
+    "mainnet": {
+      "providers": [
+        {
+          "name": "primary",
+          "urlEnv": "PRIMARY_RPC_URL",
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "name": "backup",
+          "urlEnv": "BACKUP_RPC_URL",
+          "priority": 2,
+          "enabled": true
+        }
+      ]
+    },
+    "testnet": {
+      "providers": [
+        {
+          "name": "primary",
+          "urlEnv": "TESTNET_PRIMARY_RPC_URL",
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "name": "backup",
+          "urlEnv": "TESTNET_BACKUP_RPC_URL",
+          "priority": 2,
+          "enabled": true
+        }
+      ]
+    }
+  }
+}
