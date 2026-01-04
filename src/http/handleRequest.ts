@@ -71,7 +71,7 @@ const handleRequest = async (config: Config, request: IncomingMessage, response:
     response.setHeader('connection', 'close');
     request.resume();
 
-    writeLog('request_error', { requestId, network, reason: tooLarge ? 'request_too_large' : 'internal' });
+    writeLog('request_error', { requestId, network, reason: tooLarge ? 'request_too_large' : 'internal' }, tooLarge ? 'warn' : 'error');
 
     sendJson(response, result.status, result.body, config.secrets);
   } finally {
@@ -79,7 +79,11 @@ const handleRequest = async (config: Config, request: IncomingMessage, response:
 
     response.removeListener('close', abort);
 
-    writeLog('request_completed', { requestId, network, httpStatus: response.statusCode, durationMs: Math.round(performance.now() - startedAt) });
+    writeLog(
+      'request_completed',
+      { requestId, network, httpStatus: response.statusCode, durationMs: Math.round(performance.now() - startedAt) },
+      response.statusCode >= 500 ? 'error' : response.statusCode >= 400 ? 'warn' : 'info',
+    );
   }
 };
 

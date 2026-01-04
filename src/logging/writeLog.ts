@@ -1,5 +1,8 @@
-const writeLog = (event: string, fields: Record<string, unknown> = {}): void => {
-  process.stdout.write(`${JSON.stringify({ timestamp: new Date().toISOString(), event, ...fields })}\n`);
+import logger from './logger.js';
+import type { LogLevel } from '../types/logging/logLevel.js';
+
+const writeLog = (event: string, fields: Record<string, unknown> = {}, level: LogLevel = 'info'): void => {
+  logger[level]({ ...fields, event }, event);
 };
 
 export default writeLog;

@@ -46,7 +46,7 @@ const forwardRequest = async (
       reason: result.kind === 'failure' ? result.reason : undefined,
       transportCode: result.kind === 'failure' ? result.transportCode : undefined,
       rpcErrorCode: result.kind === 'response' ? result.body.error?.code : result.rpcErrorCode,
-    });
+    }, result.kind === 'failure' || result.body.error ? 'warn' : 'info');
 
     if (result.kind === 'response') {
       return { status: result.status, body: result.body };
@@ -56,13 +56,13 @@ const forwardRequest = async (
       result.reason === 'http' &&
       !isRetryableHttpStatus(result.status ?? 0)
     ) {
-      writeLog('provider_failover_skipped', { requestId, network, provider: provider.name, reason: 'http_status_not_retryable', httpStatus: result.status });
+      writeLog('provider_failover_skipped', { requestId, network, provider: provider.name, reason: 'http_status_not_retryable', httpStatus: result.status }, 'warn');
 
       return createRpcError(502, request.id, -32003, 'Upstream rejected the request. Request was not retried.', requestId);
     }
 
     if (index + 1 < providers.length && !signal.aborted) {
-      writeLog('provider_failover', { requestId, network, from: provider.name, to: providers[index + 1]?.name, reason: result.reason });
+      writeLog('provider_failover', { requestId, network, from: provider.name, to: providers[index + 1]?.name, reason: result.reason }, 'warn');
     }
   }
 
