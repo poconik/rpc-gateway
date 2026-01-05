@@ -1,5 +1,4 @@
-import type { NetworkName } from './networkName.js';
-import type { NetworkConfig } from './networkConfig.js';
+import type { NetworksConfig } from './networksConfig.js';
 
 export interface Config {
   host: string;
@@ -9,6 +8,6 @@ export interface Config {
   maxAttempts: number;
   maxRequestBytes: number;
   maxResponseBytes: number;
-  networks: Partial<Record<NetworkName, NetworkConfig>>;
+  networks: NetworksConfig;
   secrets: string[];
 }

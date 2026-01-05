@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
 import providerSchema from './providerSchema.js';
+import type { ConfigInput } from '../types/config/configInput.js';
 
 const networkSchema = z.strictObject({
   providers: z.array(providerSchema).min(1),
 });
 
-const configSchema = z.strictObject({
+const configSchema: z.ZodType<ConfigInput> = z.strictObject({
   host: z.string().min(1).default('127.0.0.1'),
   port: z.number().int().min(1).max(65535).default(3000),
   attemptTimeoutMs: z.number().int().min(1).max(120000).default(3000),

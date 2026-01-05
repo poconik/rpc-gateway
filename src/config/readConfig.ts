@@ -6,6 +6,7 @@ import type { Config } from '../types/config/config.js';
 import compareSecrets from '../security/compareSecrets.js';
 import resolveNetworkConfig from './resolveNetworkConfig.js';
 import type { NetworkName } from '../types/config/networkName.js';
+import type { NetworksConfig } from '../types/config/networksConfig.js';
 
 const readConfig = async (environment: NodeJS.ProcessEnv): Promise<Config> => {
   const path = environment.GATEWAY_CONFIG ?? 'config/gateway.json';
@@ -16,8 +17,20 @@ const readConfig = async (environment: NodeJS.ProcessEnv): Promise<Config> => {
     throw new Error('Invalid gateway configuration. Check the documented configuration fields.');
   }
 
+  const host = environment.GATEWAY_HOST ?? parsed.data.host;
+  const port = Number(environment.GATEWAY_PORT ?? parsed.data.port);
+
+  if (
+    !host.trim() ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65535
+  ) {
+    throw new Error('Invalid GATEWAY_HOST or GATEWAY_PORT environment variable.');
+  }
+
   const providers = [];
-  const networks: Config['networks'] = {};
+  const networks: NetworksConfig = {};
   const networkNames: NetworkName[] = ['mainnet', 'testnet'];
 
   for (const name of networkNames) {
@@ -52,7 +65,7 @@ const readConfig = async (environment: NodeJS.ProcessEnv): Promise<Config> => {
 
   secrets.sort(compareSecrets);
 
-  return { ...parsed.data, networks, secrets };
+  return { ...parsed.data, host, port, networks, secrets };
 };
 
 export default readConfig;

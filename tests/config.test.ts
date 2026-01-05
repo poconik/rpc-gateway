@@ -41,6 +41,14 @@ const checkConfig = async (context: TestContext): Promise<void> => {
   assert.ok(config.secrets.includes('private-token'));
   assert.ok(config.secrets.includes('short-key'));
 
+  const listenConfig = await readConfig({ ...environment, GATEWAY_HOST: '0.0.0.0', GATEWAY_PORT: '3100' });
+
+  assert.equal(listenConfig.host, '0.0.0.0');
+  assert.equal(listenConfig.port, 3100);
+
+  await assert.rejects(readConfig({ ...environment, GATEWAY_HOST: ' ' }), /Invalid GATEWAY_HOST/);
+  await assert.rejects(readConfig({ ...environment, GATEWAY_PORT: 'invalid' }), /GATEWAY_PORT/);
+  await assert.rejects(readConfig({ ...environment, GATEWAY_PORT: '65536' }), /GATEWAY_PORT/);
   await assert.rejects(readConfig({ ...environment, PRIMARY_URL: '' }), /Missing provider URL/);
   await assert.rejects(readConfig({ ...environment, PRIMARY_URL: 'ftp://primary.example.com' }), /requires an HTTP URL/);
   await writeFile(path, JSON.stringify({ networks: { mainnet: { providers: [providers[0], providers[0]] } } }));
