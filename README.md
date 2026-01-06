@@ -27,6 +27,44 @@ npm start
 
 The service loads `.env` if present. Existing process environment variables take precedence. Configuration is loaded once at startup; restart after changing it. Set `GATEWAY_CONFIG` to use another configuration file.
 
+## Docker
+
+The Docker setup follows the same production pattern as the related services: a multi-stage Node.js 24 image, production dependencies, a non-root runtime user, Compose init, and a 30-second graceful stop period. Secrets and local configuration are excluded from the image build.
+
+Prepare `.env` and `config/gateway.json` as described above, then start the service in the background:
+
+```sh
+docker compose up -d --build
+docker compose ps
+docker compose logs -f --tail=100 gateway
+```
+
+The gateway is published at `http://127.0.0.1:3000`. Mainnet uses `/rpc` and testnet uses `/rpc-testnet`, according to the configured networks. Set `GATEWAY_PUBLISH_PORT` in `.env` to change the host port. The localhost binding matches the reverse-proxy deployment pattern used by the related services.
+
+The published port explicitly uses `host_ip: 127.0.0.1`, so it is available from the VPS itself rather than directly through the VPS public IP. `GATEWAY_HOST=0.0.0.0` controls listening inside the isolated container and is needed for Docker port forwarding. The Compose service uses bridge networking, without host networking. A reverse proxy or another service explicitly configured to forward traffic can expose the gateway separately.
+
+Compose injects `.env` at runtime and mounts the `config` directory read-only. It fixes the container listen address to `0.0.0.0:3000` using `GATEWAY_HOST` and `GATEWAY_PORT`, so a local `127.0.0.1` setting in the JSON configuration does not prevent Docker port forwarding. Direct Node.js execution still uses the JSON listen settings unless these environment overrides are supplied.
+
+The `unless-stopped` restart policy restarts an exited container and restores it after Docker starts again, unless it was manually stopped. Docker must itself start with the host operating system. Closing the terminal does not stop a detached container. The healthcheck probes `/healthz`; an unhealthy status alone does not trigger Docker's restart policy. Container logs rotate at 10 MB with three files retained.
+
+After changing RPC configuration, restart the service:
+
+```sh
+docker compose restart gateway
+```
+
+After changing `.env`, recreate it to apply the updated environment:
+
+```sh
+docker compose up -d --force-recreate gateway
+```
+
+To stop the deployment intentionally:
+
+```sh
+docker compose down
+```
+
 ## Endpoints
 
 - `POST /rpc` or `POST /`: mainnet, available only when `networks.mainnet` is configured.
@@ -137,9 +175,15 @@ These codes describe gateway-generated errors. Upstream JSON-RPC errors retain t
 
 ## Logs and secrets
 
-Pino handles application logging. `npm run dev` uses readable `pino-pretty` output, while production retains structured JSON for collection and filtering. `LOG_LEVEL` defaults to `info` and supports `debug`, `info`, `warn`, `error`, and `fatal`. Failovers and provider failures use `warn`; gateway errors use `error`; startup failures use `fatal`. `LOG_FORMAT=json` explicitly selects JSON output during development.
+Pino handles application logging. `npm run dev` uses readable `pino-pretty` output, while production and Docker retain structured JSON for collection and filtering. `LOG_LEVEL` defaults to `info` and supports `debug`, `info`, `warn`, `error`, and `fatal`. Failovers and provider failures use `warn`; gateway errors use `error`; startup failures use `fatal`. `LOG_FORMAT=json` explicitly selects JSON output during development. Compose fixes the format to JSON, and the production image does not include the development formatter.
 
 Each record includes a severity level, ISO timestamp, event name, and message. Attempt logs include the tracking ID, environment (`mainnet` or `testnet`), internal provider name, RPC method, duration, HTTP status, failure category, transport error code when available, and RPC error code. Failover, skipped failover, and request completion are separate events. Startup logs list configured networks. Skipped failover logs identify HTTP rejections that are not infrastructure failures. Provider failures inside JSON-RPC envelopes use the `provider_error` category. Collect or redirect the logger's standard output with the deployment's log system.
+
+To view Docker JSON logs through the readable formatter on a development machine with dev dependencies installed:
+
+```sh
+docker compose logs --no-log-prefix -f gateway | ./node_modules/.bin/pino-pretty
+```
 
 Upstream URLs, upstream headers, request bodies, and provider error messages are not logged. Pino also redacts configured sensitive field names, including authorization, API keys, URLs, headers, bodies, and parameters. Responses are rebuilt from validated JSON-RPC fields, without upstream HTTP headers. Known provider URLs and origins, query parameter values, long URL path segments, configured header values, and additional `redactEnv` values are redacted from response string values. Numeric values and the caller's top-level JSON-RPC ID are preserved. Add short path-based API keys or other provider-specific secrets through `redactEnv`; redaction cannot recognize arbitrary encoded or transformed secrets.
 
