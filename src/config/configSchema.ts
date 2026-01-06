@@ -9,7 +9,7 @@ const networkSchema = z.strictObject({
 
 const configSchema: z.ZodType<ConfigInput> = z.strictObject({
   host: z.string().min(1).default('127.0.0.1'),
-  port: z.number().int().min(1).max(65535).default(3000),
+  port: z.number().int().min(1).max(65535).default(18545),
   attemptTimeoutMs: z.number().int().min(1).max(120000).default(3000),
   requestTimeoutMs: z.number().int().min(1).max(120000).default(8000),
   maxAttempts: z.number().int().min(1).default(3),

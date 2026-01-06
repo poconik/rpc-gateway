@@ -39,11 +39,13 @@ docker compose ps
 docker compose logs -f --tail=100 gateway
 ```
 
-The gateway is published at `http://127.0.0.1:3000`. Mainnet uses `/rpc` and testnet uses `/rpc-testnet`, according to the configured networks. Set `GATEWAY_PUBLISH_PORT` in `.env` to change the host port. The localhost binding matches the reverse-proxy deployment pattern used by the related services.
+The container gateway is published at `http://127.0.0.1:18545`. Mainnet uses `/rpc` and testnet uses `/rpc-testnet`, according to the configured networks. Set `GATEWAY_PUBLISH_PORT` in `.env` to change the host port. The localhost binding matches the reverse-proxy deployment pattern used by the related services. The RPC client must use the published host port; direct Node.js execution uses the listen port in the JSON configuration or its environment override.
 
-The published port explicitly uses `host_ip: 127.0.0.1`, so it is available from the VPS itself rather than directly through the VPS public IP. `GATEWAY_HOST=0.0.0.0` controls listening inside the isolated container and is needed for Docker port forwarding. The Compose service uses bridge networking, without host networking. A reverse proxy or another service explicitly configured to forward traffic can expose the gateway separately.
+The published port explicitly uses `127.0.0.1:${GATEWAY_PUBLISH_PORT:-18545}:18545`, so it is available from the VPS itself rather than directly through the VPS public IP. `GATEWAY_HOST=0.0.0.0` controls listening inside the isolated container and is needed for Docker port forwarding. The Compose service uses bridge networking, without host networking. A reverse proxy or another service explicitly configured to forward traffic can expose the gateway separately.
 
-Compose injects `.env` at runtime and mounts the `config` directory read-only. It fixes the container listen address to `0.0.0.0:3000` using `GATEWAY_HOST` and `GATEWAY_PORT`, so a local `127.0.0.1` setting in the JSON configuration does not prevent Docker port forwarding. Direct Node.js execution still uses the JSON listen settings unless these environment overrides are supplied.
+Compose injects `.env` at runtime and mounts the `config` directory read-only. It fixes the container listen address to `0.0.0.0:18545` using `GATEWAY_HOST` and `GATEWAY_PORT`, so a local `127.0.0.1` setting in the JSON configuration does not prevent Docker port forwarding. Direct Node.js execution still uses the JSON listen settings unless these environment overrides are supplied.
+
+Port and volume mappings use the short syntax supported by older `docker-compose` installations. If that is the installed command on your server, use `docker-compose up -d --build` and the same command prefix for the other examples. Ensure `.env` and `config/gateway.json` exist before starting the container.
 
 The `unless-stopped` restart policy restarts an exited container and restores it after Docker starts again, unless it was manually stopped. Docker must itself start with the host operating system. Closing the terminal does not stop a detached container. The healthcheck probes `/healthz`; an unhealthy status alone does not trigger Docker's restart policy. Container logs rotate at 10 MB with three files retained.
 
@@ -75,10 +77,10 @@ Clients must send `Content-Type: application/json`. Request IDs, methods, and pa
 
 RPC routes accept one JSON-RPC 2.0 request with an explicit `id`. An omitted network's route returns HTTP `404`; it never falls back to the other environment.
 
-Point an HTTP JSON-RPC client at `http://127.0.0.1:3000/rpc`. Use a method supported by the configured providers:
+Point an HTTP JSON-RPC client at `http://127.0.0.1:18545/rpc`. Use a method supported by the configured providers:
 
 ```sh
-curl http://127.0.0.1:3000/rpc \
+curl http://127.0.0.1:18545/rpc \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
 ```
@@ -88,7 +90,7 @@ curl http://127.0.0.1:3000/rpc \
 | Field              | Default     | Meaning                                                            |
 | ------------------ | ----------- | ------------------------------------------------------------------ |
 | `host`             | `127.0.0.1` | Listen address                                                     |
-| `port`             | `3000`      | Listen port                                                        |
+| `port`             | `18545`      | Listen port                                                        |
 | `attemptTimeoutMs` | `3000`      | Maximum time for an upstream attempt, including its response body  |
 | `requestTimeoutMs` | `8000`      | Total request deadline, including incoming body reading            |
 | `maxAttempts`      | `3`         | Maximum distinct providers attempted per request                   |

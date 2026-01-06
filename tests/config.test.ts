@@ -31,6 +31,7 @@ const checkConfig = async (context: TestContext): Promise<void> => {
 
   const config = await readConfig(environment);
 
+  assert.equal(config.port, 18545);
   assert.equal(config.networks.mainnet?.providers.length, 2);
   assert.equal(config.networks.mainnet?.providers[0]?.name, 'primary');
   assert.equal(config.networks.mainnet?.providers[1]?.name, 'backup');
@@ -41,10 +42,10 @@ const checkConfig = async (context: TestContext): Promise<void> => {
   assert.ok(config.secrets.includes('private-token'));
   assert.ok(config.secrets.includes('short-key'));
 
-  const listenConfig = await readConfig({ ...environment, GATEWAY_HOST: '0.0.0.0', GATEWAY_PORT: '3100' });
+  const listenConfig = await readConfig({ ...environment, GATEWAY_HOST: '0.0.0.0', GATEWAY_PORT: '18546' });
 
   assert.equal(listenConfig.host, '0.0.0.0');
-  assert.equal(listenConfig.port, 3100);
+  assert.equal(listenConfig.port, 18546);
 
   await assert.rejects(readConfig({ ...environment, GATEWAY_HOST: ' ' }), /Invalid GATEWAY_HOST/);
   await assert.rejects(readConfig({ ...environment, GATEWAY_PORT: 'invalid' }), /GATEWAY_PORT/);

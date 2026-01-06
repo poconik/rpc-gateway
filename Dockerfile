@@ -14,5 +14,5 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --chown=node:node LICENSE ./LICENSE
 USER node
-EXPOSE 3000
+EXPOSE 18545
 CMD ["node", "dist/index.js"]

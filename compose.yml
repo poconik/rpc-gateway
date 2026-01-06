@@ -11,19 +11,11 @@ services:
       GATEWAY_CONFIG: /app/config/gateway.json
       # Container listen address; the host port is restricted to loopback below.
       GATEWAY_HOST: '0.0.0.0'
-      GATEWAY_PORT: 3000
+      GATEWAY_PORT: 18545
     volumes:
-      - type: bind
-        source: ./config
-        target: /app/config
-        read_only: true
-        bind:
-          create_host_path: false
+      - './config:/app/config:ro'
     ports:
-      - target: 3000
-        published: '${GATEWAY_PUBLISH_PORT:-3000}'
-        host_ip: 127.0.0.1
-        protocol: tcp
+      - '127.0.0.1:${GATEWAY_PUBLISH_PORT:-18545}:18545'
     healthcheck:
       test: [CMD, node, dist/checkHealth.js]
       interval: 10s

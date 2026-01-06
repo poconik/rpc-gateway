@@ -1,5 +1,5 @@
 const checkHealth = async (): Promise<void> => {
-  const port = process.env.GATEWAY_PORT ?? '3000';
+  const port = process.env.GATEWAY_PORT ?? '18545';
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}/healthz`, { signal: AbortSignal.timeout(3000) });
