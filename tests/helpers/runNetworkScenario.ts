@@ -20,29 +20,35 @@ const runNetworkScenario = async (scenario: NetworkScenario, context: TestContex
   const directory = await mkdtemp(join(tmpdir(), 'rpc-gateway-networks-'));
   const path = join(directory, 'gateway.json');
   const environment: NodeJS.ProcessEnv = { GATEWAY_CONFIG: path };
-  const states: Record<NetworkName, MockState[]> = { mainnet: [], testnet: [] };
+  const states: Record<NetworkName, MockState[]> = {};
   const networks: Partial<Record<NetworkName, NetworkInput>> = {};
-  const networkNames: NetworkName[] = ['mainnet', 'testnet'];
+
+  const definitionsByNetwork = {
+    mainnet: scenario.mainnet,
+    testnet: scenario.testnet,
+    ...scenario.networks,
+  };
 
   context.after(rm.bind(null, directory, { recursive: true, force: true }));
 
-  for (const name of networkNames) {
-    const definitions = scenario[name];
-
+  for (const [name, definitions] of Object.entries(definitionsByNetwork)) {
     if (!definitions) {
       continue;
     }
 
     const network: NetworkInput = { providers: [] };
+    const networkStates: MockState[] = [];
+
+    states[name] = networkStates;
 
     for (const [index, definition] of definitions.entries()) {
       const state: MockState = { ...definition, calls: 0, received: [] };
       const server = createServer(handleMockRequest.bind(null, state));
       const url = await startServer(server);
-      const variable = `${name.toUpperCase()}_URL_${index}`;
+      const variable = `${name.toUpperCase().replaceAll('-', '_')}_URL_${index}`;
 
       context.after(closeServer.bind(null, server));
-      states[name].push(state);
+      networkStates.push(state);
 
       environment[variable] = url;
 
@@ -64,7 +70,7 @@ const runNetworkScenario = async (scenario: NetworkScenario, context: TestContex
     const response = await fetch(`${url}${expected.path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'customCall', params: [] }),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: expected.method ?? 'customCall', params: expected.params ?? [] }),
     });
 
     const body = await response.json() as RpcResponse;
@@ -76,10 +82,10 @@ const runNetworkScenario = async (scenario: NetworkScenario, context: TestContex
     }
   }
 
-  for (const name of networkNames) {
-    const expected = name === 'mainnet' ? scenario.expectedMainnetCalls : scenario.expectedTestnetCalls;
+  for (const [name, networkStates] of Object.entries(states)) {
+    const expected = scenario.expectedCalls?.[name] ?? (name === 'mainnet' ? scenario.expectedMainnetCalls : scenario.expectedTestnetCalls);
 
-    for (const [index, state] of states[name].entries()) {
+    for (const [index, state] of networkStates.entries()) {
       assert.equal(state.calls, expected?.[index], `Unexpected calls to ${name} provider ${index}.`);
     }
   }

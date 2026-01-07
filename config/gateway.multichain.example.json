@@ -1,0 +1,26 @@
+{
+  "networks": {
+    "ethereum-mainnet": {
+      "providers": [
+        { "name": "primary", "urlEnv": "ETHEREUM_MAINNET_RPC_URL", "priority": 1 },
+        { "name": "backup", "urlEnv": "ETHEREUM_MAINNET_BACKUP_RPC_URL", "priority": 2 }
+      ]
+    },
+    "ethereum-sepolia": {
+      "providers": [
+        { "name": "primary", "urlEnv": "ETHEREUM_SEPOLIA_RPC_URL", "priority": 1 }
+      ]
+    },
+    "stellar-mainnet": {
+      "providers": [
+        { "name": "primary", "urlEnv": "STELLAR_MAINNET_RPC_URL", "priority": 1 },
+        { "name": "backup", "urlEnv": "STELLAR_MAINNET_BACKUP_RPC_URL", "priority": 2 }
+      ]
+    },
+    "stellar-testnet": {
+      "providers": [
+        { "name": "primary", "urlEnv": "STELLAR_TESTNET_RPC_URL", "priority": 1 }
+      ]
+    }
+  }
+}

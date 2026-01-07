@@ -5,7 +5,6 @@ import collectSecrets from './collectSecrets.js';
 import type { Config } from '../types/config/config.js';
 import compareSecrets from '../security/compareSecrets.js';
 import resolveNetworkConfig from './resolveNetworkConfig.js';
-import type { NetworkName } from '../types/config/networkName.js';
 import type { NetworksConfig } from '../types/config/networksConfig.js';
 
 const readConfig = async (environment: NodeJS.ProcessEnv): Promise<Config> => {
@@ -31,11 +30,8 @@ const readConfig = async (environment: NodeJS.ProcessEnv): Promise<Config> => {
 
   const providers = [];
   const networks: NetworksConfig = {};
-  const networkNames: NetworkName[] = ['mainnet', 'testnet'];
 
-  for (const name of networkNames) {
-    const input = parsed.data.networks[name];
-
+  for (const [name, input] of Object.entries(parsed.data.networks)) {
     if (!input) {
       continue;
     }

@@ -1,6 +1,6 @@
 # RPC Gateway
 
-A TypeScript HTTP gateway with ordered RPC providers and bounded failover. Each deployment supports optional mainnet and testnet provider pools. Configure either environment alone or both in one process. The gateway does not select a blockchain or validate the network behind a provider.
+A TypeScript HTTP gateway with ordered RPC providers and bounded failover. Each deployment supports any number of named blockchain and environment provider pools in one process, such as `ethereum-mainnet`, `ethereum-sepolia`, `stellar-mainnet`, and `stellar-testnet`. The gateway does not select a blockchain or validate the network behind a provider.
 
 ## Run
 
@@ -69,13 +69,14 @@ docker compose down
 
 ## Endpoints
 
+- `POST /rpc/<network>`: the exact configured network pool, such as `/rpc/ethereum-mainnet` or `/rpc/stellar-testnet`.
 - `POST /rpc` or `POST /`: mainnet, available only when `networks.mainnet` is configured.
 - `POST /rpc-testnet`: testnet, available only when `networks.testnet` is configured.
 - `GET /healthz`: process liveness; this does not probe upstream providers.
 
 Clients must send `Content-Type: application/json`. Request IDs, methods, and parameters are forwarded without chain-specific transformations. Notifications, batches, REST APIs such as Horizon, and WebSocket subscriptions are not supported in this initial version.
 
-RPC routes accept one JSON-RPC 2.0 request with an explicit `id`. An omitted network's route returns HTTP `404`; it never falls back to the other environment.
+RPC routes accept one JSON-RPC 2.0 request with an explicit `id`. An omitted network's route returns HTTP `404`; it never falls back to another chain or environment. Legacy `/rpc`, `/`, and `/rpc-testnet` routes remain available only for pools named `mainnet` and `testnet`. No default chain is selected for the named pools.
 
 Point an HTTP JSON-RPC client at `http://127.0.0.1:18545/rpc`. Use a method supported by the configured providers:
 
@@ -97,10 +98,11 @@ curl http://127.0.0.1:18545/rpc \
 | `maxRequestBytes`  | `1048576`   | Incoming body limit                                                |
 | `maxResponseBytes` | `5242880`   | Upstream body limit after decompression                            |
 | `redactEnv`        | `[]`        | Additional environment variable names containing secrets to redact |
+| `networks.<name>`  | Omitted     | Independent provider pool, exposing `/rpc/<name>`                   |
 | `networks.mainnet` | Omitted     | Mainnet provider pool, exposing `/rpc` and `/`                     |
 | `networks.testnet` | Omitted     | Testnet provider pool, exposing `/rpc-testnet`                     |
 
-At least one network must be defined. Each defined network requires a nonempty `providers` array with at least one enabled provider. Shared deadlines, body limits, and attempt limits apply to both pools. For example, this testnet-only configuration exposes `/rpc-testnet` and leaves `/rpc` unavailable:
+Network keys are lowercase ASCII identifiers, up to 64 characters, starting with a letter and containing letters, digits, or single hyphens between segments. Use a chain and environment together (for example, `base-mainnet` or `stellar-testnet`) to keep pools separate. Every configured key exposes `/rpc/<network>`. At least one network must be defined. Each defined network requires a nonempty `providers` array with at least one enabled provider. Shared deadlines, body limits, and attempt limits apply to all pools. For example, this testnet-only configuration exposes `/rpc-testnet` and leaves `/rpc` unavailable:
 
 ```json
 {
@@ -120,7 +122,7 @@ At least one network must be defined. Each defined network requires a nonempty `
 
 Add a sibling `mainnet` block to expose both environments. Each block contains its own provider list and priorities. A mainnet-only configuration uses the same shape with only the `mainnet` block. The previous top-level `providers` array now belongs under `networks.mainnet.providers` or `networks.testnet.providers`, according to the actual environment of those RPC URLs.
 
-Each provider has a unique `name` within its network, a `urlEnv` pointing to its URL environment variable, and a nonnegative integer `priority`. Lower priority values are tried first; ties preserve configuration order. `enabled` defaults to `true`. Disabled providers do not require their environment variables. Duplicate enabled URLs within a network are rejected. Provider names may be reused across mainnet and testnet.
+Each provider has a unique `name` within its network, a `urlEnv` pointing to its URL environment variable, and a nonnegative integer `priority`. Lower priority values are tried first; ties preserve configuration order. `enabled` defaults to `true`. Disabled providers do not require their environment variables. Duplicate enabled URLs within a network are rejected. Provider names may be reused across networks.
 
 Optional `headersEnv` maps upstream header names to environment variable names:
 
@@ -137,9 +139,40 @@ Optional `headersEnv` maps upstream header names to environment variable names:
 
 For example, set `PRIMARY_RPC_AUTH` to the complete authorization header value. Incoming client headers are not forwarded. Provider redirects are not followed. HTTP and HTTPS URLs are supported; URL user info and fragments are rejected.
 
+## Multiple chains
+
+Copy `config/gateway.multichain.example.json` to `config/gateway.json` and set the corresponding URL variables from `.env.example` to real provider endpoints. Remove network blocks you do not need. The example exposes:
+
+| Route | Provider pool |
+| --- | --- |
+| `/rpc/ethereum-mainnet` | Ethereum mainnet |
+| `/rpc/ethereum-sepolia` | Ethereum Sepolia |
+| `/rpc/stellar-mainnet` | Stellar mainnet RPC |
+| `/rpc/stellar-testnet` | Stellar testnet RPC |
+
+Add other JSON-RPC 2.0 chains by adding another network block; no method registration or code changes are needed. All providers in a pool must serve the same chain and environment. The gateway does not verify chain identity or translate protocols. Supported methods, history, and node capabilities depend on the configured upstreams. Use Stellar RPC URLs for Stellar JSON-RPC methods, rather than Horizon REST URLs. JSON-RPC 1.0 endpoints require a separate protocol adapter.
+
+For Ethereum:
+
+```sh
+curl http://127.0.0.1:18545/rpc/ethereum-mainnet \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
+
+For Stellar:
+
+```sh
+curl http://127.0.0.1:18545/rpc/stellar-testnet \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'
+```
+
+The gateway accepts all method names without an allowlist, including transaction submission and contract simulation. This applies to single HTTP requests with an explicit ID; batches, notifications, REST, and WebSocket subscriptions remain unsupported.
+
 ## Failover behavior
 
-Every request starts with the first enabled provider in its selected environment. Each provider is attempted at most once, with a shared deadline and a maximum attempt count. Failover never crosses between mainnet and testnet. Concurrent client requests have independent attempt budgets. The gateway applies the same failure classification to every method, including contract calls and transaction submission, without maintaining a method allowlist.
+Every request starts with the first enabled provider in its selected network. Each provider is attempted at most once, with a shared deadline and a maximum attempt count. Failover never crosses between network pools, including chains and environments. Concurrent client requests have independent attempt budgets. The gateway applies the same failure classification to every method, including contract calls and transaction submission, without maintaining a method allowlist.
 
 The next provider is tried after a network failure, timeout, malformed response, mismatched response ID, oversized response, or HTTP `401`, `402`, `403`, `404`, `408`, `429`, or any `5xx` infrastructure failure. This includes an HTTP 404 from an incorrect upstream URL. Other HTTP failures terminate the request.
 
@@ -179,7 +212,7 @@ These codes describe gateway-generated errors. Upstream JSON-RPC errors retain t
 
 Pino handles application logging. `npm run dev` uses readable `pino-pretty` output, while production and Docker retain structured JSON for collection and filtering. `LOG_LEVEL` defaults to `info` and supports `debug`, `info`, `warn`, `error`, and `fatal`. Failovers and provider failures use `warn`; gateway errors use `error`; startup failures use `fatal`. `LOG_FORMAT=json` explicitly selects JSON output during development. Compose fixes the format to JSON, and the production image does not include the development formatter.
 
-Each record includes a severity level, ISO timestamp, event name, and message. Attempt logs include the tracking ID, environment (`mainnet` or `testnet`), internal provider name, RPC method, duration, HTTP status, failure category, transport error code when available, and RPC error code. Failover, skipped failover, and request completion are separate events. Startup logs list configured networks. Skipped failover logs identify HTTP rejections that are not infrastructure failures. Provider failures inside JSON-RPC envelopes use the `provider_error` category. Collect or redirect the logger's standard output with the deployment's log system.
+Each record includes a severity level, ISO timestamp, event name, and message. Attempt logs include the tracking ID, network key (such as `ethereum-mainnet` or `stellar-testnet`), internal provider name, RPC method, duration, HTTP status, failure category, transport error code when available, and RPC error code. Failover, skipped failover, and request completion are separate events. Startup logs list configured networks. Skipped failover logs identify HTTP rejections that are not infrastructure failures. Provider failures inside JSON-RPC envelopes use the `provider_error` category. Collect or redirect the logger's standard output with the deployment's log system.
 
 To view Docker JSON logs through the readable formatter on a development machine with dev dependencies installed:
 

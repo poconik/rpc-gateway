@@ -1,1 +1,1 @@
-export type NetworkName = 'mainnet' | 'testnet';
+export type NetworkName = string;

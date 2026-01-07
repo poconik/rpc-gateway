@@ -10,6 +10,13 @@ const resolveRequestNetwork = (config: Config, path: string | undefined): Networ
     return 'testnet';
   }
 
+  const match = /^\/rpc\/([a-z][a-z0-9]*(?:-[a-z0-9]+)*)$/.exec(path ?? '');
+  const network = match?.[1];
+
+  if (network && Object.hasOwn(config.networks, network) && config.networks[network]) {
+    return network;
+  }
+
   return undefined;
 };
 

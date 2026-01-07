@@ -16,10 +16,7 @@ const configSchema: z.ZodType<ConfigInput> = z.strictObject({
   maxRequestBytes: z.number().int().min(1).max(104857600).default(1048576),
   maxResponseBytes: z.number().int().min(1).max(104857600).default(5242880),
   redactEnv: z.array(z.string().regex(/^[A-Z][A-Z0-9_]*$/)).default([]),
-  networks: z.strictObject({
-    mainnet: networkSchema.optional(),
-    testnet: networkSchema.optional(),
-  }),
+  networks: z.record(z.string().regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/).max(64), networkSchema),
 });
 
 export default configSchema;

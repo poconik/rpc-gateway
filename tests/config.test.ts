@@ -64,6 +64,19 @@ const checkConfig = async (context: TestContext): Promise<void> => {
   await assert.rejects(readConfig(environment), /at least one enabled provider/);
   await writeFile(path, JSON.stringify({ networks: { testnet: { providers: [] } } }));
   await assert.rejects(readConfig(environment), /Invalid gateway configuration/);
+
+  for (const name of ['Ethereum', 'stellar/mainnet', '../rpc', 'stellar_mainnet', 'stellar--mainnet', '-mainnet', 'a'.repeat(65)]) {
+    await writeFile(path, JSON.stringify({ networks: { [name]: { providers } } }));
+    await assert.rejects(readConfig(environment), /Invalid gateway configuration/);
+  }
+
+  await writeFile(path, JSON.stringify({ networks: { 'ethereum-mainnet': { providers }, 'stellar-testnet': { providers } } }));
+
+  const multiChainConfig = await readConfig(environment);
+
+  assert.deepEqual(Object.keys(multiChainConfig.networks), ['ethereum-mainnet', 'stellar-testnet']);
+  assert.equal(multiChainConfig.networks['ethereum-mainnet']?.providers[0]?.name, 'primary');
+  assert.equal(multiChainConfig.networks['stellar-testnet']?.providers[0]?.name, 'primary');
 };
 
 test('validates configuration, resolves secrets, and orders enabled providers', checkConfig);
