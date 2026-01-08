@@ -18,6 +18,8 @@ const handleRequest = async (config: Config, request: IncomingMessage, response:
   const timer = setTimeout(abort, config.requestTimeoutMs);
 
   response.setHeader('x-request-id', requestId);
+  response.setHeader('access-control-allow-origin', '*');
+  response.setHeader('access-control-expose-headers', 'x-request-id');
   response.once('close', abort);
 
   try {
@@ -35,8 +37,21 @@ const handleRequest = async (config: Config, request: IncomingMessage, response:
       return;
     }
 
+    if (request.method === 'OPTIONS') {
+      response.setHeader('allow', 'POST, OPTIONS');
+      response.setHeader('access-control-allow-methods', 'POST, OPTIONS');
+      response.setHeader('access-control-allow-headers', request.headers['access-control-request-headers'] ?? 'content-type');
+      response.setHeader('access-control-max-age', '600');
+      response.setHeader('vary', 'Access-Control-Request-Headers');
+      response.setHeader('cache-control', 'no-store');
+      response.writeHead(204);
+      response.end();
+
+      return;
+    }
+
     if (request.method !== 'POST') {
-      response.setHeader('allow', 'POST');
+      response.setHeader('allow', 'POST, OPTIONS');
       response.setHeader('connection', 'close');
 
       sendJson(response, 405, { error: 'Method not allowed.', requestId }, config.secrets);

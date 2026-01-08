@@ -73,6 +73,9 @@ docker compose down
 - `POST /rpc` or `POST /`: mainnet, available only when `networks.mainnet` is configured.
 - `POST /rpc-testnet`: testnet, available only when `networks.testnet` is configured.
 - `GET /healthz`: process liveness; this does not probe upstream providers.
+- `OPTIONS` on any configured RPC route: browser CORS preflight, answered locally with HTTP `204` without contacting a provider.
+
+RPC responses and gateway errors include `Access-Control-Allow-Origin: *` and expose `x-request-id` to browser clients. Preflight responses allow `POST, OPTIONS` and the requested header names, with a 600-second preflight cache lifetime. Browser requests using cookies or `credentials: 'include'` are not supported by this wildcard origin policy. Reverse proxies should forward `OPTIONS` to the gateway and avoid adding duplicate CORS headers. HTTP methods describe transport; JSON-RPC method names inside the POST body have no allowlist.
 
 Clients must send `Content-Type: application/json`. Request IDs, methods, and parameters are forwarded without chain-specific transformations. Notifications, batches, REST APIs such as Horizon, and WebSocket subscriptions are not supported in this initial version.
 

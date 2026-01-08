@@ -11,7 +11,10 @@ export interface NetworkScenario {
     status: number;
     result?: unknown;
     method?: string;
-    params?: unknown[] | Record<string, unknown>;
+    params?: unknown[] | Record<string, unknown> | null;
+    httpMethod?: string;
+    headers?: Record<string, string>;
+    expectedHeaders?: Record<string, string>;
   }[];
   expectedMainnetCalls?: number[];
   expectedTestnetCalls?: number[];

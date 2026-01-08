@@ -67,15 +67,31 @@ const runNetworkScenario = async (scenario: NetworkScenario, context: TestContex
   context.after(closeServer.bind(null, server));
 
   for (const expected of scenario.requests) {
+    const httpMethod = expected.httpMethod ?? 'POST';
+
     const response = await fetch(`${url}${expected.path}`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: expected.method ?? 'customCall', params: expected.params ?? [] }),
+      method: httpMethod,
+      headers: { 'content-type': 'application/json', ...expected.headers },
+      ...(httpMethod === 'POST' ? {
+        body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: expected.method ?? 'customCall', params: expected.params === undefined ? [] : expected.params }),
+      } : {}),
     });
 
-    const body = await response.json() as RpcResponse;
-
     assert.equal(response.status, expected.status);
+
+    for (const [name, value] of Object.entries(expected.expectedHeaders ?? {})) {
+      assert.equal(response.headers.get(name), value);
+    }
+
+    const text = await response.text();
+
+    if (expected.status === 204) {
+      assert.equal(text, '');
+
+      continue;
+    }
+
+    const body = JSON.parse(text) as RpcResponse;
 
     if (Object.hasOwn(expected, 'result')) {
       assert.deepEqual(body.result, expected.result);

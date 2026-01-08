@@ -5,6 +5,69 @@ import type { NetworkScenario } from '../src/types/testing/networkScenario.js';
 
 const scenarios: NetworkScenario[] = [
   {
+    name: 'browser preflight is handled locally and arbitrary RPC methods remain supported',
+    networks: { 'stellar-mainnet': [{}] },
+    requests: [
+      {
+        path: '/rpc/stellar-mainnet',
+        httpMethod: 'OPTIONS',
+        headers: {
+          origin: 'https://app.example.com',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type, authorization, x-client-version',
+        },
+        status: 204,
+        expectedHeaders: {
+          'access-control-allow-origin': '*',
+          'access-control-allow-methods': 'POST, OPTIONS',
+          'access-control-allow-headers': 'content-type, authorization, x-client-version',
+          'access-control-expose-headers': 'x-request-id',
+          'access-control-max-age': '600',
+          vary: 'Access-Control-Request-Headers',
+        },
+      },
+      {
+        path: '/rpc/stellar-mainnet',
+        headers: { origin: 'https://app.example.com' },
+        method: 'arbitraryFutureRpcMethod',
+        params: null,
+        status: 200,
+        result: 'ok',
+        expectedHeaders: { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'x-request-id' },
+      },
+    ],
+    expectedCalls: { 'stellar-mainnet': [1] },
+  },
+  {
+    name: 'preflight supports legacy routes without contacting providers',
+    mainnet: [{}],
+    testnet: [{}],
+    requests: [
+      { path: '/rpc', httpMethod: 'OPTIONS', status: 204, expectedHeaders: { 'access-control-allow-headers': 'content-type' } },
+      { path: '/', httpMethod: 'OPTIONS', status: 204 },
+      { path: '/rpc-testnet', httpMethod: 'OPTIONS', status: 204 },
+    ],
+    expectedMainnetCalls: [0],
+    expectedTestnetCalls: [0],
+  },
+  {
+    name: 'unknown preflight routes remain unavailable and unsupported HTTP methods stay rejected',
+    networks: { 'stellar-mainnet': [{}] },
+    requests: [
+      { path: '/rpc/unknown', httpMethod: 'OPTIONS', status: 404, expectedHeaders: { 'access-control-allow-origin': '*' } },
+      { path: '/rpc/stellar-mainnet', httpMethod: 'GET', status: 405, expectedHeaders: { allow: 'POST, OPTIONS', 'access-control-allow-origin': '*' } },
+    ],
+    expectedCalls: { 'stellar-mainnet': [0] },
+  },
+  {
+    name: 'provider failures include CORS headers so browsers can read gateway errors',
+    networks: { 'stellar-mainnet': [{ status: 503, rawBody: '' }] },
+    requests: [
+      { path: '/rpc/stellar-mainnet', status: 503, expectedHeaders: { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'x-request-id' } },
+    ],
+    expectedCalls: { 'stellar-mainnet': [1] },
+  },
+  {
     name: 'multiple chains and environments route independently without a method allowlist',
     networks: {
       'ethereum-mainnet': [{ body: { jsonrpc: '2.0', id: 7, result: 'ethereum' } }],
