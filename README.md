@@ -78,6 +78,8 @@ Clients must send `Content-Type: application/json`. Request IDs, methods, and pa
 
 RPC routes accept one JSON-RPC 2.0 request with an explicit `id`. An omitted network's route returns HTTP `404`; it never falls back to another chain or environment. Legacy `/rpc`, `/`, and `/rpc-testnet` routes remain available only for pools named `mainnet` and `testnet`. No default chain is selected for the named pools.
 
+For client compatibility, `params` may also be explicitly `null`, as sent by some clients for methods without arguments. The gateway forwards this value unchanged, including during failover; upstream acceptance depends on the provider. Arrays, objects, and omitted `params` remain supported, while strings, numbers, and booleans are rejected.
+
 Point an HTTP JSON-RPC client at `http://127.0.0.1:18545/rpc`. Use a method supported by the configured providers:
 
 ```sh

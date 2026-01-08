@@ -5,6 +5,30 @@ import type { Scenario } from '../src/types/testing/scenario.js';
 
 const scenarios: Scenario[] = [
   {
+    name: 'accepts and preserves null params for a Stellar getNetwork request',
+    request: { jsonrpc: '2.0', id: 1, method: 'getNetwork', params: null },
+    providers: [{ body: { jsonrpc: '2.0', id: 1, result: { protocolVersion: 23 } } }],
+    expectedCalls: [1],
+    expectedStatus: 200,
+    expectedResult: { protocolVersion: 23 },
+  },
+  {
+    name: 'preserves null params during provider failover',
+    request: { jsonrpc: '2.0', id: 1, method: 'getNetwork', params: null },
+    providers: [{ status: 503, rawBody: 'Unavailable' }, { body: { jsonrpc: '2.0', id: 1, result: 'ok' } }],
+    expectedCalls: [1, 1],
+    expectedStatus: 200,
+    expectedResult: 'ok',
+  },
+  {
+    name: 'continues to accept requests with omitted params',
+    request: { jsonrpc: '2.0', id: 7, method: 'getNetwork' },
+    providers: [{}],
+    expectedCalls: [1],
+    expectedStatus: 200,
+    expectedResult: 'ok',
+  },
+  {
     name: 'fails over on a quota error inside an HTTP 200 JSON-RPC envelope',
     providers: [{ body: { jsonrpc: '2.0', id: 7, error: { code: -32000, message: 'Quota exceeded' } } }, {}],
     expectedCalls: [1, 1],
@@ -255,6 +279,17 @@ const scenarios: Scenario[] = [
     expectedMessage: 'Rejected [REDACTED]',
   },
 ];
+
+for (const params of ['invalid', 1, true]) {
+  scenarios.push({
+    name: `rejects ${typeof params} params before contacting a provider`,
+    request: { jsonrpc: '2.0', id: 7, method: 'getNetwork', params },
+    providers: [{}],
+    expectedCalls: [0],
+    expectedStatus: 400,
+    expectedError: -32600,
+  });
+}
 
 for (const scenario of scenarios) {
   test(scenario.name, runScenario.bind(null, scenario));
